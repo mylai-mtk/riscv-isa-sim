@@ -321,3 +321,34 @@ inline long double to_f(float128_t f) { long double r; memcpy(&r, &f, sizeof(r))
   reg_t h##field = get_field(STATE.henvcfg->read(), HENVCFG_##field)
 
 #endif
+
+#define ZICFILP_READ_XLPE(v, prv) \
+  ({ \
+    reg_t csr_val, mask; \
+    if (p->extension_enabled('S')) { \
+      if (v) { \
+        switch (prv) { \
+        case PRV_U: csr_val = STATE.senvcfg->read(); mask = SENVCFG_LPE; break; \
+        case PRV_S: csr_val = STATE.henvcfg->read(); mask = HENVCFG_LPE; break; \
+        default: abort(); \
+        } \
+      } else { \
+        switch (prv) { \
+        case PRV_U: csr_val = STATE.senvcfg->read(); mask = SENVCFG_LPE; break; \
+        case PRV_S: csr_val = STATE.menvcfg->read(); mask = MENVCFG_LPE; break; \
+        case PRV_M: csr_val = STATE.mseccfg->read(); mask = MSECCFG_MLPE; break; \
+        default: abort(); \
+        } \
+      } \
+    } else { \
+      switch (prv) { \
+      case PRV_U: csr_val = STATE.menvcfg->read(); mask = MENVCFG_LPE; break; \
+      case PRV_M: csr_val = STATE.mseccfg->read(); mask = MSECCFG_MLPE; break; \
+      default: abort(); \
+      } \
+    } \
+    get_field(csr_val, mask); \
+  })
+#define ZICFILP_EXPECT_LP(reg_num) \
+  (((reg_num) != 1 && (reg_num) != 5 && (reg_num) != 7) ? \
+   elp_t::LP_EXPECTED : elp_t::NO_LP_EXPECTED)
