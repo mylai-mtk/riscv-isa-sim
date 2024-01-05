@@ -9,6 +9,16 @@ s = set_field(s, MSTATUS_MIE, get_field(s, MSTATUS_MPIE));
 s = set_field(s, MSTATUS_MPIE, 1);
 s = set_field(s, MSTATUS_MPP, p->extension_enabled('U') ? PRV_U : PRV_M);
 s = set_field(s, MSTATUS_MPV, 0);
+
+if (p->extension_enabled(EXT_ZICFILP)) {
+  if (ZICFILP_READ_XLPE(prev_virt, prev_prv)) {
+    STATE.elp = static_cast<elp_t>(get_field(s, MSTATUS_MPELP));
+  } else {
+    STATE.elp = elp_t::NO_LP_EXPECTED;
+  }
+  s = set_field(s, MSTATUS_MPELP, elp_t::NO_LP_EXPECTED);
+}
+
 STATE.mstatus->write(s);
 if (STATE.mstatush) STATE.mstatush->write(s >> 32); // log mstatush change
 p->set_privilege(prev_prv, prev_virt);

@@ -680,7 +680,7 @@ class dcsr_csr_t: public csr_t {
   dcsr_csr_t(processor_t* const proc, const reg_t addr);
   virtual void verify_permissions(insn_t insn, bool write) const override;
   virtual reg_t read() const noexcept override;
-  void write_cause_and_prv(uint8_t cause, reg_t prv, bool v) noexcept;
+  void update_fields(uint8_t cause, reg_t prv, bool v, const elp_t pelp) noexcept;
  protected:
   virtual bool unlogged_write(const reg_t val) noexcept override;
  public:

@@ -832,8 +832,13 @@ const char* processor_t::get_privilege_string()
 
 void processor_t::enter_debug_mode(uint8_t cause)
 {
+  const bool has_zicfilp = extension_enabled(EXT_ZICFILP);
   state.debug_mode = true;
-  state.dcsr->write_cause_and_prv(cause, state.prv, state.v);
+  state.dcsr->update_fields(cause, state.prv, state.v,
+                            (has_zicfilp ? state.elp : elp_t::NO_LP_EXPECTED));
+  if (has_zicfilp) {
+    state.elp = elp_t::NO_LP_EXPECTED;
+  }
   set_privilege(PRV_M, false);
   state.dpc->write(state.pc);
   state.pc = DEBUG_ROM_ENTRY;
@@ -881,6 +886,7 @@ void processor_t::take_trap(trap_t& t, reg_t epc)
   bool curr_virt = state.v;
   const reg_t interrupt_bit = (reg_t)1 << (max_xlen - 1);
   bool interrupt = (bit & interrupt_bit) != 0;
+  const bool has_zicfilp = extension_enabled(EXT_ZICFILP);
   if (interrupt) {
     vsdeleg = (curr_virt && state.prv <= PRV_S) ? state.hideleg->read() : 0;
     hsdeleg = (state.prv <= PRV_S) ? state.mideleg->read() : 0;
@@ -902,6 +908,10 @@ void processor_t::take_trap(trap_t& t, reg_t epc)
     s = set_field(s, MSTATUS_SPIE, get_field(s, MSTATUS_SIE));
     s = set_field(s, MSTATUS_SPP, state.prv);
     s = set_field(s, MSTATUS_SIE, 0);
+    if (has_zicfilp) {
+      s = set_field(s, MSTATUS_SPELP, state.elp);
+      state.elp = elp_t::NO_LP_EXPECTED;
+    }
     state.sstatus->write(s);
     set_privilege(PRV_S, true);
   } else if (state.prv <= PRV_S && bit < max_xlen && ((hsdeleg >> bit) & 1)) {
@@ -918,6 +928,10 @@ void processor_t::take_trap(trap_t& t, reg_t epc)
     s = set_field(s, MSTATUS_SPIE, get_field(s, MSTATUS_SIE));
     s = set_field(s, MSTATUS_SPP, state.prv);
     s = set_field(s, MSTATUS_SIE, 0);
+    if (has_zicfilp) {
+      s = set_field(s, MSTATUS_SPELP, state.elp);
+      state.elp = elp_t::NO_LP_EXPECTED;
+    }
     state.nonvirtual_sstatus->write(s);
     if (extension_enabled('H')) {
       s = state.hstatus->read();
@@ -949,6 +963,10 @@ void processor_t::take_trap(trap_t& t, reg_t epc)
     s = set_field(s, MSTATUS_MIE, 0);
     s = set_field(s, MSTATUS_MPV, curr_virt);
     s = set_field(s, MSTATUS_GVA, t.has_gva());
+    if (has_zicfilp) {
+      s = set_field(s, MSTATUS_MPELP, state.elp);
+      state.elp = elp_t::NO_LP_EXPECTED;
+    }
     state.mstatus->write(s);
     if (state.mstatush) state.mstatush->write(s >> 32);  // log mstatush change
     set_privilege(PRV_M, false);
